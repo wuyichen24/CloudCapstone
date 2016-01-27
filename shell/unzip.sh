@@ -2,7 +2,7 @@
 
 n=1
 filename=empty
-filebase=/root/disk1/aviation/airline_ontime/2008/
+filebase=/root/disk/aviation/airline_ontime/2008/
 
 while [ $n -lt 11 ]
 do
