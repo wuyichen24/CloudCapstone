@@ -107,10 +107,15 @@ public class TopAirport extends Configured implements Tool {
         public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
         	String line          = value.toString();
         	String[] row         = line.split(delimiters);
-        	String origAirport = row[11].trim();
-        	String destAirport = row[18].trim();
+        	String origAirport = row[11].substring(1, row[11].length()-1);
+        	String destAirport = row[18].substring(1, row[18].length()-1);
         	
-			context.write(new Text(destAirport), new IntWritable(1));
+        	if (!origAirport.equals("Origin")) {                             // ignore the header of csv file
+        		context.write(new Text(origAirport), new IntWritable(1));
+        	}
+        	if (!destAirport.equals("DestCityName")) {                       // ignore the header of csv file
+        		context.write(new Text(destAirport), new IntWritable(1));
+        	}
         }
     }
 
@@ -155,7 +160,6 @@ public class TopAirport extends Configured implements Tool {
 
         @Override
         public void reduce(NullWritable key, Iterable<TextArrayWritable> values, Context context) throws IOException, InterruptedException {
-            // TODO
         	for (TextArrayWritable val: values) { 
         		Text[] pair= (Text[]) val.toArray();
         		String airport = pair[0].toString();
