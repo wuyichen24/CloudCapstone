@@ -2,7 +2,7 @@
 
 n=1
 filename=empty
-year=2007
+year=2006
 
 filebase='/root/disk/aviation/airline_ontime/'$year'/'
 
