@@ -20,6 +20,8 @@ import org.apache.hadoop.util.ToolRunner;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.Arrays;
+import java.util.List;
 import java.util.TreeSet;
 
 public class TopCarrierPerAirport extends Configured implements Tool {
@@ -126,6 +128,7 @@ public class TopCarrierPerAirport extends Configured implements Tool {
 
     public static class AirportCarrierCountMap extends Mapper<Object, Text, Text, IntWritable> {
     	String delimiters = ",";
+    	List<String> queryAirports = Arrays.asList("CMI", "BWI", "MIA", "LAX", "IAH", "SFO");
 
         @Override
         public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
@@ -133,9 +136,16 @@ public class TopCarrierPerAirport extends Configured implements Tool {
         	String[] row         = line.split(delimiters);
         	String airport       = row[11].substring(1, row[11].length()-1);
         	String airline       = row[6].substring(1, row[6].length()-1);
-        	String depDelayStr   = row[25].substring(1, row[25].length()-1);
+        	String depDelayStr   = "xxx";
+        			
+        	if (row[25].length() == 6 && row[25].startsWith("\"") && row[25].endsWith("\"")) {
+        		depDelayStr = row[25].substring(1, row[25].length()-1);
+        	}
+        	if (row[25].contains(".")) {
+        		depDelayStr = row[25].substring(0, row[25].indexOf("."));
+        	}        	
         	
-        	if (isInteger(depDelayStr)) {
+        	if (isInteger(depDelayStr) && queryAirports.contains(airport)) {
         		context.write(new Text(airport + "-" + airline), new IntWritable(Integer.parseInt(depDelayStr)));
         	}
         }
@@ -166,12 +176,12 @@ public class TopCarrierPerAirport extends Configured implements Tool {
         	
         	String  airport = keyStr.split("-")[0];
         	String  carrier = keyStr.split("-")[1];
-        	Integer count = Integer.parseInt(value.toString());
+        	Integer time    = Integer.parseInt(value.toString());
         	
         	if (airport.equals(lastAirport)) {
         		// If the currentAirport is same with lastAirport
         		// Still use same container, keep the size of it
-        		airportAirlineMap.add(new Pair<Integer, String>(count, airport+"-"+carrier));
+        		airportAirlineMap.add(new Pair<Integer, String>(time, airport+"-"+carrier));
                 if (airportAirlineMap.size() > N) {
                 	airportAirlineMap.remove(airportAirlineMap.last());
                 }
@@ -192,7 +202,7 @@ public class TopCarrierPerAirport extends Configured implements Tool {
         		lastAirport = airport;
         		
         		// Add first new record into the container
-        		airportAirlineMap.add(new Pair<Integer, String>(count, airport+"-"+carrier));
+        		airportAirlineMap.add(new Pair<Integer, String>(time, airport+" "+carrier));
         	}
         }
 

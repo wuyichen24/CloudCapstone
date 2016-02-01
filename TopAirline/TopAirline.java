@@ -132,7 +132,14 @@ public class TopAirline extends Configured implements Tool {
         	String line          = value.toString();
         	String[] row         = line.split(delimiters);
         	String Airline       = row[6].trim();
-        	String ArrDelayStr   = row[36].substring(1, row[36].length()-1);
+        	String ArrDelayStr   = "xxx";
+        	
+        	if (row[36].length() == 6 && row[36].startsWith("\"") && row[36].endsWith("\"")) {
+        		ArrDelayStr = row[36].substring(1, row[36].length()-1);
+        	}
+        	if (row[36].contains(".")) {
+        		ArrDelayStr = row[36].substring(0, row[36].indexOf("."));
+        	}
         	
         	if (isInteger(ArrDelayStr)) {
         		context.write(new Text(Airline), new IntWritable(Integer.parseInt(ArrDelayStr)));

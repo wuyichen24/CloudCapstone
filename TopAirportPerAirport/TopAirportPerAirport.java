@@ -20,6 +20,8 @@ import org.apache.hadoop.util.ToolRunner;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.Arrays;
+import java.util.List;
 import java.util.TreeSet;
 
 public class TopAirportPerAirport extends Configured implements Tool {
@@ -126,6 +128,7 @@ public class TopAirportPerAirport extends Configured implements Tool {
 
     public static class AirportAirportCountMap extends Mapper<Object, Text, Text, IntWritable> {
     	String delimiters = ",";
+    	List<String> queryAirports = Arrays.asList("CMI", "BWI", "MIA", "LAX", "IAH", "SFO");
 
         @Override
         public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
@@ -133,9 +136,16 @@ public class TopAirportPerAirport extends Configured implements Tool {
         	String[] row        = line.split(delimiters);
         	String origAirport  = row[11].substring(1, row[11].length()-1);
         	String destAirport  = row[18].substring(1, row[18].length()-1);
-        	String depDelayStr  = row[25].substring(1, row[25].length()-1);
+        	String depDelayStr   = "xxx";
+			
+        	if (row[25].length() == 6 && row[25].startsWith("\"") && row[25].endsWith("\"")) {
+        		depDelayStr = row[25].substring(1, row[25].length()-1);
+        	}
+        	if (row[25].contains(".")) {
+        		depDelayStr = row[25].substring(0, row[25].indexOf("."));
+        	}
         	
-        	if (isInteger(depDelayStr)) {
+        	if (isInteger(depDelayStr) && queryAirports.contains(origAirport)) {
         		context.write(new Text(origAirport + "-" + destAirport), new IntWritable(Integer.parseInt(depDelayStr)));
         	}
         }

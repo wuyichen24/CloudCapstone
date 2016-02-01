@@ -73,7 +73,7 @@ public class Test extends Configured implements Tool {
             // TODO
         	String line = value.toString();
         	String[] row = line.split(delimiters);
-			context.write(new Text(row[36].trim()), new IntWritable(1));
+		context.write(new Text(row[36].trim()), new IntWritable(1));
         }
         
         @Override

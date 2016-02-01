@@ -20,6 +20,8 @@ import org.apache.hadoop.util.ToolRunner;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.Arrays;
+import java.util.List;
 import java.util.TreeSet;
 
 public class TopCarrierPerRoute extends Configured implements Tool {
@@ -126,6 +128,7 @@ public class TopCarrierPerRoute extends Configured implements Tool {
 
     public static class RouteCarrierCountMap extends Mapper<Object, Text, Text, IntWritable> {
     	String delimiters = ",";
+    	List<String> queryRoutes = Arrays.asList("CMI-ORD", "IND-CMH", "DFW-IAH", "LAX-SFO", "JFK-LAX", "ATL-PHX");
 
         @Override
         public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
@@ -135,9 +138,16 @@ public class TopCarrierPerRoute extends Configured implements Tool {
         	String origAirport   = row[11].substring(1, row[11].length()-1);
         	String destAirport   = row[18].substring(1, row[18].length()-1);
         	String airline       = row[6] .substring(1, row[6] .length()-1);
-        	String arrDelayStr   = row[36].substring(1, row[36].length()-1);
+        	String arrDelayStr   = "xxx";
+			
+        	if (row[36].length() == 6 && row[36].startsWith("\"") && row[36].endsWith("\"")) {
+        		arrDelayStr = row[36].substring(1, row[36].length()-1);
+        	}
+        	if (row[36].contains(".")) {
+        		arrDelayStr = row[36].substring(0, row[36].indexOf("."));
+        	}
         	
-        	if (isInteger(arrDelayStr)) {
+        	if (isInteger(arrDelayStr) && queryRoutes.contains(origAirport + "-" + destAirport)) {
         		context.write(new Text(origAirport+"-"+destAirport+"-"+airline), new IntWritable(Integer.parseInt(arrDelayStr)));
         	}
         }
@@ -173,7 +183,7 @@ public class TopCarrierPerRoute extends Configured implements Tool {
         	if (route.equals(lastRoute)) {
         		// If the currentAirport is same with lastAirport
         		// Still use same container, keep the size of it
-        		routeAirlineMap.add(new Pair<Integer, String>(time, route+" "+carrier));
+        		routeAirlineMap.add(new Pair<Integer, String>(time, route+"-"+carrier));
                 if (routeAirlineMap.size() > N) {
                 	routeAirlineMap.remove(routeAirlineMap.last());
                 }
@@ -194,7 +204,7 @@ public class TopCarrierPerRoute extends Configured implements Tool {
         		lastRoute = route;
         		
         		// Add first new record into the container
-        		routeAirlineMap.add(new Pair<Integer, String>(time, route+" "+carrier));
+        		routeAirlineMap.add(new Pair<Integer, String>(time, route+"-"+carrier));
         	}
         }
 
