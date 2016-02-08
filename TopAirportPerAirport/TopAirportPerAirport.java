@@ -4,6 +4,7 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.ArrayWritable;
+import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
@@ -53,7 +54,7 @@ public class TopAirportPerAirport extends Configured implements Tool {
 
         Job jobB = Job.getInstance(conf, "Top Airport Per Airport");
         jobB.setOutputKeyClass(Text.class);
-        jobB.setOutputValueClass(IntWritable.class);
+        jobB.setOutputValueClass(DoubleWritable.class);
 
         jobB.setMapOutputKeyClass(NullWritable.class);
         jobB.setMapOutputValueClass(TextArrayWritable.class);
@@ -138,12 +139,9 @@ public class TopAirportPerAirport extends Configured implements Tool {
         	String destAirport  = row[18].substring(1, row[18].length()-1);
         	String depDelayStr   = "xxx";
 			
-        	if (row[25].length() == 6 && row[25].startsWith("\"") && row[25].endsWith("\"")) {
-        		depDelayStr = row[25].substring(1, row[25].length()-1);
-        	}
-        	if (row[25].contains(".")) {
-        		depDelayStr = row[25].substring(0, row[25].indexOf("."));
-        	}
+        	if (row[27].contains(".")) {
+        		depDelayStr = row[27].substring(0, row[27].indexOf("."));
+        	} 
         	
         	if (isInteger(depDelayStr) && queryAirports.contains(origAirport)) {
         		context.write(new Text(origAirport + "-" + destAirport), new IntWritable(Integer.parseInt(depDelayStr)));
@@ -151,7 +149,7 @@ public class TopAirportPerAirport extends Configured implements Tool {
         }
     }
 
-    public static class AirportAirportCountReduce extends Reducer<Text, IntWritable, Text, IntWritable> {
+    public static class AirportAirportCountReduce extends Reducer<Text, IntWritable, Text, DoubleWritable> {
         @Override
         public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
         	int sum  = 0;
@@ -160,14 +158,14 @@ public class TopAirportPerAirport extends Configured implements Tool {
 				sum += val.get();
 				size = size + 1;
 			}
-			int avg = sum / size;
-			context.write(key, new IntWritable(avg));
+			double avg = (double) sum / (double) size;
+			context.write(key, new DoubleWritable(avg));
         }
     }
 
     public static class TopAirportAirportMap extends Mapper<Text, Text, NullWritable, TextArrayWritable> {
         Integer N = 10;
-        private TreeSet<Pair<Integer, String>> airportAirportMap = new TreeSet<Pair<Integer, String>>();
+        private TreeSet<Pair<Double, String>> airportAirportMap = new TreeSet<Pair<Double, String>>();
         private String lastAirport = "";
 
         @Override
@@ -176,12 +174,12 @@ public class TopAirportPerAirport extends Configured implements Tool {
         	
         	String  origAirport = keyStr.split("-")[0];
         	String  destAirport = keyStr.split("-")[1];
-        	Integer time        = Integer.parseInt(value.toString());
+        	Double  time        = Double.parseDouble(value.toString());
         	
         	if (origAirport.equals(lastAirport)) {
         		// If the currentAirport is same with lastAirport
         		// Still use same container, keep the size of it
-        		airportAirportMap.add(new Pair<Integer, String>(time, origAirport+"-"+destAirport));
+        		airportAirportMap.add(new Pair<Double, String>(time, origAirport+"-"+destAirport));
                 if (airportAirportMap.size() > N) {
                 	airportAirportMap.remove(airportAirportMap.last());
                 }
@@ -189,7 +187,7 @@ public class TopAirportPerAirport extends Configured implements Tool {
         		// If the currentAirport is NOT same with lastAirport
         		
         		// Emit all the records of lastAirport from container
-        		for (Pair<Integer, String> item : airportAirportMap) { 
+        		for (Pair<Double, String> item : airportAirportMap) { 
             		String[] strings = {item.second, item.first.toString()};
             		TextArrayWritable val = new TextArrayWritable(strings);
             		context.write(NullWritable.get(), val);
@@ -202,14 +200,14 @@ public class TopAirportPerAirport extends Configured implements Tool {
         		lastAirport = origAirport;
         		
         		// Add first new record into the container
-        		airportAirportMap.add(new Pair<Integer, String>(time, origAirport+"-"+destAirport));
+        		airportAirportMap.add(new Pair<Double, String>(time, origAirport+"-"+destAirport));
         	}
         }
 
         @Override
         protected void cleanup(Context context) throws IOException, InterruptedException {
         	// Emit the data set of the last airport (last group)
-        	for (Pair<Integer, String> item : airportAirportMap) { 
+        	for (Pair<Double, String> item : airportAirportMap) { 
         		String[] strings = {item.second, item.first.toString()};
         		TextArrayWritable val = new TextArrayWritable(strings);
         		context.write(NullWritable.get(), val);
@@ -217,14 +215,14 @@ public class TopAirportPerAirport extends Configured implements Tool {
         }
     }
 
-    public static class TopAirportAirportReduce extends Reducer<NullWritable, TextArrayWritable, Text, IntWritable> {
+    public static class TopAirportAirportReduce extends Reducer<NullWritable, TextArrayWritable, Text, DoubleWritable> {
         @Override
         public void reduce(NullWritable key, Iterable<TextArrayWritable> values, Context context) throws IOException, InterruptedException {
         	for (TextArrayWritable val: values) { 
         		Text[] pair    = (Text[]) val.toArray();
-        		String  airportAirport = pair[0].toString();
-        		Integer time           = Integer.parseInt(pair[1].toString());
-        		context.write(new Text(airportAirport), new IntWritable(time));
+        		String airportAirport = pair[0].toString();
+        		Double time           = Double.parseDouble(pair[1].toString());
+        		context.write(new Text(airportAirport), new DoubleWritable(time));
         	}
         }
     }

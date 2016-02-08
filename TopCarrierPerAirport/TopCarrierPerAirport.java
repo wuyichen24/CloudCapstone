@@ -4,6 +4,7 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.ArrayWritable;
+import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
@@ -53,7 +54,7 @@ public class TopCarrierPerAirport extends Configured implements Tool {
 
         Job jobB = Job.getInstance(conf, "Top Carrier Per Airport");
         jobB.setOutputKeyClass(Text.class);
-        jobB.setOutputValueClass(IntWritable.class);
+        jobB.setOutputValueClass(DoubleWritable.class);
 
         jobB.setMapOutputKeyClass(NullWritable.class);
         jobB.setMapOutputValueClass(TextArrayWritable.class);
@@ -128,7 +129,6 @@ public class TopCarrierPerAirport extends Configured implements Tool {
 
     public static class AirportCarrierCountMap extends Mapper<Object, Text, Text, IntWritable> {
     	String delimiters = ",";
-    	List<String> queryAirports = Arrays.asList("CMI", "BWI", "MIA", "LAX", "IAH", "SFO");
 
         @Override
         public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
@@ -138,20 +138,17 @@ public class TopCarrierPerAirport extends Configured implements Tool {
         	String airline       = row[6].substring(1, row[6].length()-1);
         	String depDelayStr   = "xxx";
         			
-        	if (row[25].length() == 6 && row[25].startsWith("\"") && row[25].endsWith("\"")) {
-        		depDelayStr = row[25].substring(1, row[25].length()-1);
-        	}
-        	if (row[25].contains(".")) {
-        		depDelayStr = row[25].substring(0, row[25].indexOf("."));
+        	if (row[27].contains(".")) {
+        		depDelayStr = row[27].substring(0, row[27].indexOf("."));
         	}        	
         	
-        	if (isInteger(depDelayStr) && queryAirports.contains(airport)) {
+        	if (isInteger(depDelayStr)) {
         		context.write(new Text(airport + "-" + airline), new IntWritable(Integer.parseInt(depDelayStr)));
         	}
         }
     }
 
-    public static class AirportCarrierCountReduce extends Reducer<Text, IntWritable, Text, IntWritable> {
+    public static class AirportCarrierCountReduce extends Reducer<Text, IntWritable, Text, DoubleWritable> {
         @Override
         public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
         	int sum  = 0;
@@ -160,14 +157,14 @@ public class TopCarrierPerAirport extends Configured implements Tool {
 				sum += val.get();
 				size = size + 1;
 			}
-			int avg = sum / size;
-			context.write(key, new IntWritable(avg));
+			double avg = (double) sum / (double) size;
+			context.write(key, new DoubleWritable(avg));
         }
     }
 
     public static class TopAirportCarrierMap extends Mapper<Text, Text, NullWritable, TextArrayWritable> {
         Integer N = 10;
-        private TreeSet<Pair<Integer, String>> airportAirlineMap = new TreeSet<Pair<Integer, String>>();
+        private TreeSet<Pair<Double, String>> airportAirlineMap = new TreeSet<Pair<Double, String>>();
         private String lastAirport = "";
 
         @Override
@@ -176,12 +173,12 @@ public class TopCarrierPerAirport extends Configured implements Tool {
         	
         	String  airport = keyStr.split("-")[0];
         	String  carrier = keyStr.split("-")[1];
-        	Integer time    = Integer.parseInt(value.toString());
+        	Double  time    = Double.parseDouble(value.toString());
         	
         	if (airport.equals(lastAirport)) {
         		// If the currentAirport is same with lastAirport
         		// Still use same container, keep the size of it
-        		airportAirlineMap.add(new Pair<Integer, String>(time, airport+"-"+carrier));
+        		airportAirlineMap.add(new Pair<Double, String>(time, airport+"-"+carrier));
                 if (airportAirlineMap.size() > N) {
                 	airportAirlineMap.remove(airportAirlineMap.last());
                 }
@@ -189,7 +186,7 @@ public class TopCarrierPerAirport extends Configured implements Tool {
         		// If the currentAirport is NOT same with lastAirport
         		
         		// Emit all the records of lastAirport from container
-        		for (Pair<Integer, String> item : airportAirlineMap) { 
+        		for (Pair<Double, String> item : airportAirlineMap) { 
             		String[] strings = {item.second, item.first.toString()};
             		TextArrayWritable val = new TextArrayWritable(strings);
             		context.write(NullWritable.get(), val);
@@ -202,14 +199,14 @@ public class TopCarrierPerAirport extends Configured implements Tool {
         		lastAirport = airport;
         		
         		// Add first new record into the container
-        		airportAirlineMap.add(new Pair<Integer, String>(time, airport+" "+carrier));
+        		airportAirlineMap.add(new Pair<Double, String>(time, airport+"-"+carrier));
         	}
         }
 
         @Override
         protected void cleanup(Context context) throws IOException, InterruptedException {
         	// Emit the data set of the last airport (last group)
-        	for (Pair<Integer, String> item : airportAirlineMap) { 
+        	for (Pair<Double, String> item : airportAirlineMap) { 
         		String[] strings = {item.second, item.first.toString()};
         		TextArrayWritable val = new TextArrayWritable(strings);
         		context.write(NullWritable.get(), val);
@@ -217,14 +214,14 @@ public class TopCarrierPerAirport extends Configured implements Tool {
         }
     }
 
-    public static class TopAirportCarrierReduce extends Reducer<NullWritable, TextArrayWritable, Text, IntWritable> {
+    public static class TopAirportCarrierReduce extends Reducer<NullWritable, TextArrayWritable, Text, DoubleWritable> {
         @Override
         public void reduce(NullWritable key, Iterable<TextArrayWritable> values, Context context) throws IOException, InterruptedException {
         	for (TextArrayWritable val: values) { 
         		Text[] pair    = (Text[]) val.toArray();
         		String  airportAirline = pair[0].toString();
-        		Integer time           = Integer.parseInt(pair[1].toString());
-        		context.write(new Text(airportAirline), new IntWritable(time));
+        		Double time           = Double.parseDouble(pair[1].toString());
+        		context.write(new Text(airportAirline), new DoubleWritable(time));
         	}
         }
     }

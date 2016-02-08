@@ -4,6 +4,7 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.ArrayWritable;
+import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
@@ -51,7 +52,7 @@ public class TopAirline extends Configured implements Tool {
 
         Job jobB = Job.getInstance(conf, "Top Airline");
         jobB.setOutputKeyClass(Text.class);
-        jobB.setOutputValueClass(IntWritable.class);
+        jobB.setOutputValueClass(DoubleWritable.class);
 
         jobB.setMapOutputKeyClass(NullWritable.class);
         jobB.setMapOutputValueClass(TextArrayWritable.class);
@@ -131,14 +132,11 @@ public class TopAirline extends Configured implements Tool {
         public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
         	String line          = value.toString();
         	String[] row         = line.split(delimiters);
-        	String Airline       = row[6].trim();
+        	String Airline       = row[6].substring(1, row[6].length()-1);
         	String ArrDelayStr   = "xxx";
         	
-        	if (row[36].length() == 6 && row[36].startsWith("\"") && row[36].endsWith("\"")) {
-        		ArrDelayStr = row[36].substring(1, row[36].length()-1);
-        	}
-        	if (row[36].contains(".")) {
-        		ArrDelayStr = row[36].substring(0, row[36].indexOf("."));
+        	if (row[38].contains(".")) {
+        		ArrDelayStr = row[38].substring(0, row[38].indexOf("."));
         	}
         	
         	if (isInteger(ArrDelayStr)) {
@@ -147,7 +145,7 @@ public class TopAirline extends Configured implements Tool {
         }
     }
 
-    public static class AirlineCountReduce extends Reducer<Text, IntWritable, Text, IntWritable> {
+    public static class AirlineCountReduce extends Reducer<Text, IntWritable, Text, DoubleWritable> {
         @Override
         public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
         	int sum  = 0;
@@ -156,20 +154,20 @@ public class TopAirline extends Configured implements Tool {
 				sum += val.get();
 				size = size + 1;
 			}
-			int avg = sum / size;
-			context.write(key, new IntWritable(avg));
+			double avg = (double) sum / (double) size;
+			context.write(key, new DoubleWritable(avg));
         }
     }
 
     public static class TopAirlineMap extends Mapper<Text, Text, NullWritable, TextArrayWritable> {
         Integer N = 10;
-        private TreeSet<Pair<Integer, String>> countAirlineMap = new TreeSet<Pair<Integer, String>>();
+        private TreeSet<Pair<Double, String>> countAirlineMap = new TreeSet<Pair<Double, String>>();
 
         @Override
         public void map(Text key, Text value, Context context) throws IOException, InterruptedException {
         	String Airline = key.toString();
-        	Integer count = Integer.parseInt(value.toString());
-            countAirlineMap.add(new Pair<Integer, String>(count, Airline));
+        	Double count = Double.parseDouble((value.toString()));
+            countAirlineMap.add(new Pair<Double, String>(count, Airline));
             if (countAirlineMap.size() > N) {
                 countAirlineMap.remove(countAirlineMap.last());
             }
@@ -177,7 +175,7 @@ public class TopAirline extends Configured implements Tool {
 
         @Override
         protected void cleanup(Context context) throws IOException, InterruptedException {
-        	for (Pair<Integer, String> item : countAirlineMap) { 
+        	for (Pair<Double, String> item : countAirlineMap) { 
         		String[] strings = {item.second, item.first.toString()};
         		TextArrayWritable val = new TextArrayWritable(strings);
         		context.write(NullWritable.get(), val);
@@ -185,25 +183,25 @@ public class TopAirline extends Configured implements Tool {
         }
     }
 
-    public static class TopAirlineReduce extends Reducer<NullWritable, TextArrayWritable, Text, IntWritable> {
+    public static class TopAirlineReduce extends Reducer<NullWritable, TextArrayWritable, Text, DoubleWritable> {
         Integer N = 10;
-        private TreeSet<Pair<Integer, String>> countAirlineMap = new TreeSet<Pair<Integer, String>>();
+        private TreeSet<Pair<Double, String>> countAirlineMap = new TreeSet<Pair<Double, String>>();
 
         @Override
         public void reduce(NullWritable key, Iterable<TextArrayWritable> values, Context context) throws IOException, InterruptedException {
         	for (TextArrayWritable val: values) { 
         		Text[] pair= (Text[]) val.toArray();
         		String Airline = pair[0].toString();
-        		Integer count = Integer.parseInt(pair[1].toString());
-        		countAirlineMap.add(new Pair<Integer, String>(count, Airline));
+        		Double count = Double.parseDouble(pair[1].toString());
+        		countAirlineMap.add(new Pair<Double, String>(count, Airline));
         		if (countAirlineMap.size() > N) {
         			countAirlineMap.remove(countAirlineMap.last());
         		} 
         	}
 
-        	for (Pair<Integer, String> item: countAirlineMap) { 
+        	for (Pair<Double, String> item: countAirlineMap) { 
         		Text word = new Text(item.second);
-        		IntWritable value = new IntWritable(item.first); 
+        		DoubleWritable value = new DoubleWritable(item.first); 
         		context.write(word, value);
         	}
         }
