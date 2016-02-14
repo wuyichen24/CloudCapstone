@@ -129,7 +129,6 @@ public class TopAirportPerAirport extends Configured implements Tool {
 
     public static class AirportAirportCountMap extends Mapper<Object, Text, Text, IntWritable> {
     	String delimiters = ",";
-    	List<String> queryAirports = Arrays.asList("CMI", "BWI", "MIA", "LAX", "IAH", "SFO");
 
         @Override
         public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
@@ -143,7 +142,7 @@ public class TopAirportPerAirport extends Configured implements Tool {
         		depDelayStr = row[27].substring(0, row[27].indexOf("."));
         	} 
         	
-        	if (isInteger(depDelayStr) && queryAirports.contains(origAirport)) {
+        	if (isInteger(depDelayStr)) {
         		context.write(new Text(origAirport + "-" + destAirport), new IntWritable(Integer.parseInt(depDelayStr)));
         	}
         }
@@ -172,36 +171,38 @@ public class TopAirportPerAirport extends Configured implements Tool {
         public void map(Text key, Text value, Context context) throws IOException, InterruptedException {
         	String keyStr      = key.toString();
         	
-        	String  origAirport = keyStr.split("-")[0];
-        	String  destAirport = keyStr.split("-")[1];
-        	Double  time        = Double.parseDouble(value.toString());
+		if (keyStr.split("-").length == 2 ) {
+        		String  origAirport = keyStr.split("-")[0];
+        		String  destAirport = keyStr.split("-")[1];
+        		Double  time        = Double.parseDouble(value.toString());
         	
-        	if (origAirport.equals(lastAirport)) {
-        		// If the currentAirport is same with lastAirport
-        		// Still use same container, keep the size of it
-        		airportAirportMap.add(new Pair<Double, String>(time, origAirport+"-"+destAirport));
-                if (airportAirportMap.size() > N) {
-                	airportAirportMap.remove(airportAirportMap.last());
-                }
-        	} else {
-        		// If the currentAirport is NOT same with lastAirport
+        		if (origAirport.equals(lastAirport)) {
+        			// If the currentAirport is same with lastAirport
+        			// Still use same container, keep the size of it
+        			airportAirportMap.add(new Pair<Double, String>(time, origAirport+"-"+destAirport));
+                		if (airportAirportMap.size() > N) {
+                			airportAirportMap.remove(airportAirportMap.last());
+                		}
+        		} else {
+        			// If the currentAirport is NOT same with lastAirport
         		
-        		// Emit all the records of lastAirport from container
-        		for (Pair<Double, String> item : airportAirportMap) { 
-            		String[] strings = {item.second, item.first.toString()};
-            		TextArrayWritable val = new TextArrayWritable(strings);
-            		context.write(NullWritable.get(), val);
-            	}
+        			// Emit all the records of lastAirport from container
+        			for (Pair<Double, String> item : airportAirportMap) { 
+            			String[] strings = {item.second, item.first.toString()};
+            			TextArrayWritable val = new TextArrayWritable(strings);
+            			context.write(NullWritable.get(), val);
+            		}
         		
-        		// Reset the container
-        		airportAirportMap.clear();
+        			// Reset the container
+        			airportAirportMap.clear();
         		
-        		// Update lastAirport
-        		lastAirport = origAirport;
+        			// Update lastAirport
+        			lastAirport = origAirport;
         		
-        		// Add first new record into the container
-        		airportAirportMap.add(new Pair<Double, String>(time, origAirport+"-"+destAirport));
-        	}
+        			// Add first new record into the container
+        			airportAirportMap.add(new Pair<Double, String>(time, origAirport+"-"+destAirport));
+        		}
+		}
         }
 
         @Override
