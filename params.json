@@ -1,0 +1,6 @@
+{
+  "name": "Analysis of Airline On-Time Performance Data in Hadoop and Spark",
+  "tagline": "",
+  "body": "### Basic functionalities\r\n* Launched and configured multiple AWS EC2 instances with proper security setting (IAM Role, Security Group, Private Key Access).\r\n* Installed and deployed Hadoop and Spark on the cluster of multiple AWS EC2 instances by Ambari.\r\n* Figured out several solutions and implemented them in Hadoop and Spark respectively for analyzing the Airline On-Time Performance Data (all non-cancelled flights between 1988 and 2008) from the US Bureau of Transportation Statistics (BTS).\r\n* Installed and deployed Cassandra database on multiple nodes and store the computing result into it.\r\n* Applied system-level optimizations by creating instances with a higher ratio of vCPUs of memory and application-level optimizations by adjusting spark.locality.* properties in SparkConf for increasing data locality\r\n\r\n### Authors and Contributors\r\n@wuyichen24: https://www.linkedin.com/in/wuyichen24",
+  "note": "Don't delete this file! It's used internally to help with page regeneration."
+}
